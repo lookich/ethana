@@ -1,0 +1,122 @@
+x-app: &default-app
+  build:
+    context: "."
+    dockerfile: "Dockerfile.dev"
+    target: "app"
+    args:
+      - "RAILS_ENV=${RAILS_ENV:-production}"
+      - "NODE_ENV=${NODE_ENV:-production}"
+      - "RUBY_VERSION=3.2.6"
+      - "NODE_VERSION=22.13.1-r0"
+      - "YARN_VERSION=1.22.22-r1"
+      - "BUNDLER_VERSION=2.6.3"
+      # - "PORT=${PORT:-3000}"
+      - "ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY=${ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY}"
+      - "ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY=${ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY}"
+      - "ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT=${ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT}"
+      - "SECRET_KEY_BASE=${SECRET_KEY_BASE}"
+      - "DEVISE_JWT_SECRET_KEY=${DEVISE_JWT_SECRET_KEY}"
+  env_file:
+    - ".env"
+  volumes:
+      - .:/app
+  restart: "${DOCKER_RESTART_POLICY:-unless-stopped}"
+  stop_grace_period: "3s"
+
+services:
+  postgres:
+    deploy:
+      resources:
+        limits:
+          cpus: "${DOCKER_POSTGRES_CPUS:-0}"
+          memory: "${DOCKER_POSTGRES_MEMORY:-0}"
+    environment:
+      POSTGRES_USER: "${POSTGRES_USER}"
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
+      # POSTGRES_DB: "${POSTGRES_DB}"
+    image: "postgres:15.5-alpine"
+    restart: "${DOCKER_RESTART_POLICY:-unless-stopped}"
+    stop_grace_period: "3s"
+    volumes:
+      - "postgres:/var/lib/postgresql/data"
+    profiles: ["postgres"]
+
+  redis:
+    deploy:
+      resources:
+        limits:
+          cpus: "${DOCKER_REDIS_CPUS:-0}"
+          memory: "${DOCKER_REDIS_MEMORY:-0}"
+    image: "redis:7.4.2-alpine"
+    restart: "${DOCKER_RESTART_POLICY:-unless-stopped}"
+    stop_grace_period: "3s"
+    volumes:
+      - "redis:/data"
+    profiles: ["redis"]
+
+  vite:
+    <<: *default-app
+    command: "./bin/vite dev --clobber"
+    ports:
+      - "${DOCKER_VITE_PORT_FORWARD:-127.0.0.1:3036}:${VITE_RUBY_PORT:-3036}"
+    profiles: ["vite"]
+    tty: true
+
+  web:
+    <<: *default-app
+    entrypoint: ["sh","./bin/docker-entrypoint-web.sh"]
+    command: "./bin/rails server -b ${HOST} -p ${PORT}"
+    depends_on:
+      - "postgres"
+      - "redis"
+      - "vite"
+    deploy:
+      resources:
+        limits:
+          cpus: "${DOCKER_WEB_CPUS:-0}"
+          memory: "${DOCKER_WEB_MEMORY:-0}"
+    # volumes:
+    #   - vite_dev:/app/public/vite-dev
+    #   - vite_test:/app/public/vite-test
+    ports:
+      - "${DOCKER_WEB_PORT_FORWARD:-127.0.0.1:3000}:${PORT:-3000}"
+    profiles: ["web"]
+    tty: true
+
+  worker:
+    <<: *default-app
+    depends_on:
+      - "postgres"
+      - "redis"
+    command: "bundle exec sidekiq -C config/sidekiq.yml"
+    entrypoint: []
+    deploy:
+      resources:
+        limits:
+          cpus: "${DOCKER_WORKER_CPUS:-0}"
+          memory: "${DOCKER_WORKER_MEMORY:-0}"
+    profiles: ["worker"]
+
+  cable:
+    <<: *default-app
+    depends_on:
+      - "postgres"
+      - "redis"
+    command: "puma -p 28080 cable/config.ru"
+    entrypoint: []
+    deploy:
+      resources:
+        limits:
+          cpus: "${DOCKER_CABLE_CPUS:-0}"
+          memory: "${DOCKER_CABLE_MEMORY:-0}"
+    ports:
+      - "${DOCKER_CABLE_PORT_FORWARD:-127.0.0.1:28080}:28080"
+    profiles: ["cable"]
+
+volumes:
+  postgres: {}
+  redis: {}
+  # bundle: {}
+  # node_modules: {}
+  # vite_dev: {}
+  # vite_test: {}

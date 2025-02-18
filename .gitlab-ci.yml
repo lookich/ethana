@@ -1,0 +1,94 @@
+variables:
+  RUBY_VERSION: 3.2.6
+  NODE_VERSION: 22.13.1-r0
+  YARN_VERSION: 1.22.22-r1
+  BUNDLER_VERSION: 2.6.3
+  IMAGE_NAME: ethana
+
+stages:
+  - build_prerequisites
+  - linters
+  - test
+  - build
+
+.def_build_job: &def_build_job
+  image: docker:26.1
+  stage: build
+  cache:
+    key: "$CI_COMMIT_REF_SLUG"
+  services:
+    - docker:26.1-dind
+  before_script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+  script:
+    - docker pull $DOCKER_IMAGE || echo 'Image Not Found!'
+    - docker buildx build --target $DOCKER_BUILD_TARGET -f Dockerfile.prod --cache-from $DOCKER_IMAGE --build-arg RAILS_ENV=$RAILS_ENV
+      --build-arg NODE_ENV=$NODE_ENV
+      --build-arg RUBY_VERSION=$RUBY_VERSION
+      --build-arg NODE_VERSION=$NODE_VERSION
+      --build-arg YARN_VERSION=$YARN_VERSION
+      --build-arg BUNDLER_VERSION=$BUNDLER_VERSION
+      --build-arg ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY=$ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY
+      --build-arg ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY=$ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY
+      --build-arg ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT=$ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT
+      --build-arg SECRET_KEY_BASE=$SECRET_KEY_BASE
+      --build-arg DEVISE_JWT_SECRET_KEY=$DEVISE_JWT_SECRET_KEY
+      -t $DOCKER_IMAGE .
+    - docker push $DOCKER_IMAGE
+  variables:
+    GIT_SUBMODULE_STRATEGY: recursive
+  tags:
+    - docker
+
+build_prerequisites:
+  <<: *def_build_job
+  stage: build_prerequisites
+  variables:
+    DOCKER_BUILD_TARGET: test
+    DOCKER_IMAGE: $CI_REGISTRY_IMAGE/test:$CI_COMMIT_REF_SLUG
+    GIT_SUBMODULE_STRATEGY: recursive
+  except:
+    - tags
+
+rubocop:
+  image:
+    name: "$CI_REGISTRY_IMAGE/test:$CI_COMMIT_REF_SLUG"
+    entrypoint: ['']
+  stage: linters
+  variables:
+    RAILS_ENV: test
+    NODE_ENV: test
+  before_script:
+    - bundle install
+  script:
+    - bundle exec rubocop
+  tags:
+    - docker
+  except:
+    - tags
+
+rspec:
+  image:
+    name: "$CI_REGISTRY_IMAGE/test:$CI_COMMIT_REF_SLUG"
+    entrypoint: ['']
+  stage: test
+  services:
+    - postgres:15.5-alpine
+    - redis:7.4.2-alpine
+  variables:
+    RAILS_ENV: test
+    NODE_ENV: test
+    POSTGRES_HOST: postgres
+    POSTGRES_DB: runner_db
+    POSTGRES_USER: runner
+    POSTGRES_PASSWORD: '123456'
+    POSTGRES_PORT: 5432
+  before_script:
+    - yarn install
+    - bundle exec rails db:setup
+  script:
+    - bundle exec rails spec
+  tags:
+    - docker
+  except:
+    - tags

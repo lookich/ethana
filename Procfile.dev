@@ -1,0 +1,4 @@
+web: bin/rails server -p $PORT
+css: bin/rails tailwindcss:watch
+worker: bin/bundle exec sidekiq -C config/sidekiq.yml
+vite: bin/vite dev --clobber
