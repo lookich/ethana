@@ -1,0 +1,61 @@
+en:
+  theme: "Theme"
+  themes:
+    dark: "dark"
+    light: "light"
+  auth:
+    signin: "Login"
+    signin_to:
+      account: "Sign in to your account"
+    signup: "Registration"
+    signup_to:
+      account: "Registering a new account"
+    signout: "Logout"
+    button:
+      signin: "Sign in"
+      signup: "Sign up"
+      password_recover: "Get a new password"
+    email: "Email:"
+    email_required: "Email is required!"
+    email_invalid: "Email is invalid!"
+    email_length_max: "Must be maximum 50 characters!"
+    password: "Password:"
+    password_required: "Password is required!"
+    password_length_min: "Must be at least 6 characters!"
+    password_length_max: "Must be maximum 40 characters!"
+    password_confirmation_not_matched: "Passwords must match"
+    password_confirmation: "Password confirmation:"
+    forgot_password: "Forgot password?"
+    password_recover: "Password recovery"
+    error:
+      user_not_found: "User not found"
+      user_token_expired: "Timed out. Please try again."
+      sign_in:
+        unconfirmed: "Unauthorized. Email confirmation required."
+        incorrect_auth_credentials: "Unauthorized. Incorrect email/password."
+        invalid_token: "Unauthorized. Invalid or expired token."
+      sign_up:
+        failed: "User couldn't be created successfully."
+        email:
+          taken: "This email is already taken."
+  notification:
+    auth:
+      complete:
+      message_title: "Welcome"
+      message_body: "You have successfully registered."
+    show_all: "Show all"
+    close: "Close"
+    delete: "Delete"
+    date: "Date"
+  mailer:
+    confirmation:
+      sent: "A confirmation email has been sent. Please follow the link in the email."
+      subject: "Confirmation instruction"
+      template:
+        instruction: "You can confirm your account email through the link below:"
+        confirm: "Confirm my email"
+    reset_password:
+      subject: "Reset password instruction"
+      template:
+        instruction: "Someone has requested a link to change your password. You can do this through the link below.\n If you didn't request this, please ignore this email.\n"
+        submit: "Change password"

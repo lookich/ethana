@@ -1,0 +1,3 @@
+<p>t('mailer.confirmation.template.instruction'):</p>
+
+<p><%= link_to t('mailer.confirmation.template.confirm'), "#{ENV['VUE_API_URL']}/#/user/confirm_email?confirmation_token=#{@token}" %></p>

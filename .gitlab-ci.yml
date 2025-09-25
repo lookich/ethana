@@ -1,0 +1,159 @@
+variables:
+  RUBY_VERSION: 3.2.6
+  NODE_VERSION: 22.15.1-r0
+  YARN_VERSION: 1.22.22-r1
+  DOCKER_DRIVER: overlay2
+
+stages:
+  - build_prerequisites
+  - linters
+  - test
+  - build_deployment
+  - build
+  - deploy
+
+.def_build_job: &def_build_job
+  image: docker:28.0
+  stage: build
+  cache:
+    key: "main"
+  services:
+    - name: docker:28.0-dind
+      alias: docker
+  before_script:
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+  script:
+    - docker pull $DOCKER_IMAGE || echo 'Image Not Found!'
+    - docker buildx build --target $DOCKER_BUILD_TARGET --cache-from $DOCKER_IMAGE -f Dockerfile.prod
+      -t $DOCKER_IMAGE .
+    - docker push $DOCKER_IMAGE
+  variables:
+    GIT_SUBMODULE_STRATEGY: recursive
+  tags:
+    - docker
+
+build_prerequisites:
+  <<: *def_build_job
+  stage: build_prerequisites
+  variables:
+    DOCKER_BUILD_TARGET: production
+    DOCKER_IMAGE: $CI_REGISTRY_IMAGE/production:main
+  except:
+    - tags
+  only:
+    changes:
+      - "Dockerfile.prod"
+      - "Gemfile"
+      - "package.json"
+
+build_deployment:
+  image: docker:28.0-dind
+  interruptible: true
+  stage: build_deployment
+  services:
+    - name: docker:28.0-dind
+      alias: docker
+  before_script:
+    - docker login -u "$CI_REGISTRY_USER" -p "$CI_REGISTRY_PASSWORD" $CI_REGISTRY
+  script:
+    - docker pull $DOCKER_IMAGE || echo 'Image Not Found!'
+    - docker buildx build --cache-from $DOCKER_IMAGE -f Dockerfile.deploy -t $DOCKER_IMAGE .
+    - docker push $DOCKER_IMAGE
+  variables:
+    DOCKER_IMAGE: $CI_REGISTRY_IMAGE/deploy
+    GIT_SUBMODULE_STRATEGY: recursive
+    DOCKER_HOST: tcp://docker:2375
+  except:
+    - tags
+  only:
+    changes:
+      - "Dockerfile.deploy"
+
+rubocop:
+  image:
+    name: "$CI_REGISTRY_IMAGE/production:main"
+    entrypoint: ['']
+  stage: linters
+  variables:
+    RAILS_ENV: test
+    NODE_ENV: test
+  before_script:
+    - bundle install
+  script:
+    - bundle exec rubocop
+  tags:
+    - docker
+  except:
+    - tags
+
+rspec:
+  image:
+    name: "$CI_REGISTRY_IMAGE/production:main"
+    entrypoint: ['']
+  stage: test
+  environment:
+    name: test
+  services:
+    - postgres:15.5-alpine
+    - redis:7.4.2-alpine
+    - rabbitmq:4-management
+  variables:
+    RAILS_ENV: test
+    NODE_ENV: test
+    POSTGRES_HOST: postgres
+    POSTGRES_DB: runner_db
+    POSTGRES_USER: "$POSTGRES_TEST_USER" # From CI/CD Variables
+    POSTGRES_PASSWORD: "$POSTGRES_TEST_PASSWORD" # From CI/CD Variables
+    POSTGRES_PORT: 5432
+    RABBITMQ_DEFAULT_USER: rabbitmq
+    RABBITMQ_DEFAULT_PASS: rabbitmq
+    RABBITMQ_DEFAULT_PORT: 5672
+    RABBITMQ_DEFAULT_VHOST: /
+    RABBITMQ_AMQP_ADDRESSES: rabbitmq:5672
+    RABBITMQ_WEB_USERNAME: "$RABBITMQ_TEST_USER" # From CI/CD Variables
+    RABBITMQ_WEB_PASSWORD: "$RABBITMQ_TEST_PASSWORD" # From CI/CD Variables
+    RABBITMQ_VHOST: /
+  before_script:
+    - yarn install
+    - bundle exec rails db:setup
+  script:
+    - bundle exec rails spec
+  tags:
+    - docker
+  except:
+    - tags
+
+deploy:
+  interruptible: true
+  image:
+    name: "$DOCKER_IMAGE"
+    entrypoint: ['']
+  stage: deploy
+  environment:
+    name: production
+  before_script:
+    - apk update && apk add openssh
+    - docker login -u $CI_REGISTRY_USER -p $CI_REGISTRY_PASSWORD $CI_REGISTRY
+  script:
+    - docker pull $DOCKER_IMAGE || echo 'Image Not Found!'
+    - echo SECRET_KEY_BASE=$SECRET_KEY_BASE >> .env # From CI/CD Variables
+    - echo RAILS_MASTER_KEY=$RAILS_MASTER_KEY >> .env # From CI/CD Variables
+    - eval $(ssh-agent -s)
+    - mkdir -p ~/.ssh && chmod 700 ~/.ssh
+    - echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa # From CI/CD Variables
+    - chmod 600 ~/.ssh/id_rsa
+    - cat ~/.ssh/id_rsa | tr -d '\r' | ssh-add -
+    - ssh-keyscan $VM_IPADDRESS > ~/.ssh/known_hosts # From CI/CD Variables
+    - kamal lock release
+    - kamal deploy --version=main
+    - kamal prune all
+  variables:
+    DOCKER_IMAGE: $CI_REGISTRY_IMAGE/deploy
+    GIT_SUBMODULE_STRATEGY: recursive
+    DOCKER_HOST: tcp://docker:2375
+  tags:
+    - docker
+  except:
+    - tags
+  only:
+    - main

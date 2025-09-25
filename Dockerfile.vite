@@ -1,0 +1,12 @@
+FROM node:22-bookworm
+
+WORKDIR /app
+COPY package.json yarn.lock ./
+
+# Install npm packages
+RUN yarn install --frozen-lockfile
+
+COPY ./bin/docker-entrypoint-vite.sh ./bin/docker-entrypoint-vite.sh
+RUN chmod +x ./bin/docker-entrypoint-vite.sh
+ENTRYPOINT ["./bin/docker-entrypoint-vite.sh"]
+# CMD ["npm", "run", "dev"]
