@@ -1,0 +1,17 @@
+<html>
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+    <style>
+    </style>
+  </head>
+
+  <body>
+    <p>
+      <%= t('mailer.confirmation.template.instruction') %>
+    </p>
+
+    <p>
+      <%= link_to t('mailer.confirmation.template.confirm'), "#{ENV['VITE_API_URL']}/user/confirm_email?confirmation_token=#{@data['confirmation_token']}" %>
+    </p>
+  </body>
+</html>

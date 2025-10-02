@@ -1,0 +1,103 @@
+@layer components {
+  html,
+  body {
+    @apply
+      bg-slate-100
+      text-slate-700
+      h-full
+      dark:bg-slate-700
+      dark:text-slate-300;
+  }
+}
+/* Button */
+.btn-main {
+  @apply
+    flex
+    w-full
+    justify-center
+    rounded-md
+    bg-slate-600
+    px-3
+    py-1.5
+    text-sm/6
+    font-semibold
+    text-white
+    shadow-xs
+    hover:bg-slate-500
+    focus-visible:outline-2
+    focus-visible:outline-offset-2
+    focus-visible:outline-slate-600
+    dark:bg-slate-300
+    dark:text-slate-900
+    dark:border-slate-200
+    dark:hover:bg-slate-500
+    dark:hover:border-slate-500
+    dark:focus:ring-slate-200;
+  }
+
+/*Font*/
+.label-main {
+  @apply
+    block
+    text-sm/6
+    font-medium
+    text-slate-950
+    dark:text-slate-300
+}
+
+.link-main {
+  @apply
+    text-sm/6
+    font-medium
+    text-slate-950 
+    hover:text-slate-400
+    dark:text-slate-300
+    dark:hover:text-slate-400
+}
+
+.field-main {
+  @apply
+    block
+    w-full
+    rounded-md
+    bg-white
+    px-3
+    py-1.5
+    text-base
+    text-slate-950
+    outline-1
+    -outline-offset-1
+    outline-slate-300
+    placeholder:text-slate-400
+    focus:outline-2
+    focus:-outline-offset-2
+    focus:outline-slate-600
+    sm:text-sm/6
+}
+
+.alert-main {
+  @apply
+    p-4
+    mb-4
+    text-sm
+    text-red-800
+    dark:text-red-400
+}
+
+.h2-main {
+  @apply
+    mt-10
+    text-center
+    text-2xl/9
+    font-bold
+    tracking-tight
+    text-slate-950
+    dark:text-slate-200
+}
+
+.ntfc-title {
+  @apply
+    text-sm/6
+    text-slate-950
+    dark:text-slate-300
+}

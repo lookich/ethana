@@ -1,0 +1,147 @@
+# Name of your application. Used to uniquely configure containers.
+service: ethana
+
+# Name of the container image.
+image: flagman775/ethana/production
+
+# Deploy to these servers.
+servers:
+  web:
+    hosts:
+      - 176.108.253.31
+    proxy: true
+
+primary_role: web
+
+retain_containers: 4
+
+# Enable SSL auto certification via Let's Encrypt and allow for multiple apps on a single web server.
+# Remove this section when using multiple web servers and ensure you terminate SSL at your load balancer.
+#
+# Note: If using Cloudflare, set encryption mode in SSL/TLS setting to "Full" to enable CF-to-app encryption.
+proxy:
+  ssl: true
+  host: ethana.dedyn.io
+  app_port: 3000
+
+# Credentials for your image host.
+registry:
+  # Specify the registry server, if you're not using Docker Hub
+  # server: registry.digitalocean.com / ghcr.io / ...
+  server: registry.gitlab.com
+  username:
+    - KAMAL_REGISTRY_USERNAME
+  # Always use an access token rather than real password when possible.
+  password:
+    - KAMAL_REGISTRY_PASSWORD
+
+# Inject ENV variables into containers (secrets come from .kamal/secrets).
+env:
+  secret:
+    - SECRET_KEY_BASE
+    - RAILS_MASTER_KEY
+    - POSTGRES_USER
+    - POSTGRES_PASSWORD
+    - DEVISE_JWT_SECRET_KEY
+    - ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEY
+    - ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY
+    - ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT
+    - RABBITMQ_WEB_USERNAME
+    - RABBITMQ_WEB_PASSWORD
+    - SMTP_HOST
+    - SMTP_PORT
+    - MAIL_USERNAME
+    - MAIL_PASSWORD
+    - MAIL_HOST
+    - APP_EMAIL
+    - VITE_BROKER_USERNAME
+    - VITE_BROKER_PASSWORD
+  clear:
+    REDIS_URL: redis://ethana-redis:6379/1
+    RAILS_ENV: production
+    NODE_ENV: production
+    POSTGRES_DB: ethana
+    POSTGRES_HOST: ethana-postgres
+    RABBITMQ_AMQP_ADDRESSES: ethana-rabbitmq:5672
+    RABBITMQ_VHOST: ethana-vhost
+    APP_HOST: ethana.dedyn.io
+    VITE_API_URL: https://ethana.dedyn.io
+    VITE_BROKER_VHOST: ethana-vhost
+    VITE_BROKER_WS: https://ethana-rabbitmq:15673/ws
+
+# Aliases are triggered with "bin/kamal <alias>". You can overwrite arguments on invocation:
+# "bin/kamal logs -r job" will tail logs from the first server in the job section.
+aliases:
+  console: app exec --interactive --reuse "bin/rails console"
+  shell: app exec --interactive --reuse "sh"
+  logs: app logs -f
+  dbc: app exec --interactive --reuse "bin/rails dbconsole"
+
+# Use a persistent storage volume for sqlite database files and local Active Storage files.
+# Recommended to change this to a mounted volume path that is backed up off server.
+volumes:
+  - "ethana_storage:/ethana/storage"
+  - "/etc/letsencrypt/:/etc/letsencrypt/"
+# Bridge fingerprinted assets, like JS and CSS, between versions to avoid
+# hitting 404 on in-flight requests. Combines all files from new and old
+# version inside the asset_path.
+asset_path: /ethana/public/assets
+
+# Configure the image builder.
+builder:
+  arch:
+    - amd64
+  remote: ssh://ethana@176.108.253.31
+  dockerfile: Dockerfile.prod
+  args:
+    VITE_API_URL: ""
+    VITE_BROKER_VHOST: ""
+    VITE_BROKER_WS: ""
+    VITE_BROKER_USERNAME: ""
+    VITE_BROKER_PASSWORD: ""
+
+# Use a different ssh user than root
+ssh:
+  user: ethana
+
+# Use accessory services (secrets come from .kamal/secrets).
+accessories:
+  postgres:
+    image: postgres:15.5-alpine
+    roles:
+      - web
+    port: 5432
+    env:
+      clear:
+        POSTGRES_USER: $POSTGRES_USER
+        POSTGRES_DB: $POSTGRES_DB
+      secret:
+        - POSTGRES_PASSWORD
+    files:
+      - config/init.sql:/docker-entrypoint-initdb.d/setup.sql
+    directories:
+      - data:/var/lib/postgresql/data
+  redis:
+    image: redis:7.4.2-alpine
+    roles:
+      - web
+    port: 6379
+    volumes:
+      - /var/lib/redis:/data
+  rabbitmq:
+    image: rabbitmq:4-management
+    roles:
+      - web
+    options:
+      publish:
+        - "5672:5672"
+        - "15672:15672"
+        - "15673:15673"
+        - "15674:15674"
+    volumes:
+      - "./rabbitmq:/var/lib/rabbitmq"
+      - "/etc/letsencrypt/:/etc/letsencrypt/"
+    files:
+      - config/rabbitmq_definitions.json:/etc/rabbitmq/definitions.json
+      - config/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf
+      - config/rabbitmq_enabled_plugins:/etc/rabbitmq/enabled_plugins

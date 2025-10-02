@@ -1,0 +1,61 @@
+ru:
+  theme: "Тема"
+  themes:
+    dark: "темная"
+    light: "светлая"
+  auth:
+    signin: "Вход"
+    signin_to:
+      account: "Войдите в свой аккаунт"
+    signup: "Регистрация"
+    signup_to:
+      account: "Регистрация нового аккаунт"
+    signout: "Выйти"
+    button:
+      signin: "Войти"
+      signup: "Зарегистрироваться"
+      password_recover: "Получить новый пароль"
+    email: "Почтовый ящик:"
+    email_required: "Необходимо указать почтовый ящик!"
+    email_invalid: "Почтовый ящик укалан невепрно!"
+    email_length_max: "Максимальная длина 50 символов!"
+    password: "Пароль:"
+    password_required: "Необходимо задать пароль!"
+    password_length_min: "Минимальная длина 6 символов"
+    password_length_max: "Максимальная длина 40 символов!"
+    password_confirmation_not_matched: "Пароли не совпадают!"
+    password_confirmation: "Подтверждение пароля:"
+    forgot_password: "Забыли пароль?"
+    password_recover: "Восстановление пароля"
+    error:
+      user_not_found: "Пользователь не найден"
+      user_token_expired: "Время истекло. Попробуйте повторить заново."
+      sign_in:
+        unconfirmed: "Unauthorized. Требуется подтверждение электронной почты."
+        incorrect_auth_credentials: "Unauthorized. Неверный email или пароль."
+        invalid_token: "Unauthorized. Пожалйста войдите на сайт заново."
+      sign_up:
+        failed: "Не удается завершить создание пользователя."
+        email:
+          taken: "Данный уже email занят."
+  notification:
+    auth:
+      complete:
+        message_title: "Добро пожаловать"
+        message_body: "Вы успешно зарегистрировались."
+    show_all: "Показать все"
+    close: "Закрыть"
+    delete: "Удалить"
+    date: "Дата"
+  mailer:
+    confirmation:
+      sent: "Отправлено письмо для подтверждения электронной почты. Перейдите по ссылке в письме."
+      subject: "Инструкция для подтверждения электронной почты"
+      template:
+        instruction: "Вы можете подтвердить адрес электронной почты своей учетной записи, перейдя по ссылке ниже:"
+        confirm: "Подтвердить мою почту"
+    reset_password:
+      subject: "Инструкция для сброса пароля"
+      template:
+        instruction: "Кто-то запросил ссылку для смены пароля. Вы можете сделать это по ссылке ниже.\n Если вы этого не запрашивали, пожалуйста, проигнорируйте это письмо.\n"
+        submit: "Сменить пароль"

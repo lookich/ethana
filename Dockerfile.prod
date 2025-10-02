@@ -1,0 +1,112 @@
+ARG RUBY_VERSION=3.2.6
+ARG IMAGE_DIST=alpine
+
+FROM ruby:$RUBY_VERSION-$IMAGE_DIST AS base
+
+# Install system dependencies required both at runtime and build time
+ARG NODE_VERSION=22.15.1-r0
+ARG YARN_VERSION=1.22.22-r1
+ARG BUNDLER_VERSION=2.7.1
+
+RUN apk add --update \
+  git \
+  postgresql-dev \
+  tzdata \
+  openssl \
+  nodejs=$NODE_VERSION \
+  yarn=$YARN_VERSION
+
+# Upgrade RubyGems and install the latest Bundler version
+RUN gem update --system && \
+    rm /usr/local/lib/ruby/gems/*/specifications/default/bundler-*.gemspec && \
+    gem uninstall bundler && \
+    gem install bundler -v $BUNDLER_VERSION --no-document
+
+######################################################################
+
+# This stage will be responsible for installing gems and npm packages
+FROM base AS dependencies
+
+# Install system dependencies required to build some Ruby gems
+RUN apk add --update build-base
+RUN mkdir /ethana
+WORKDIR /ethana
+
+COPY .ruby-version Gemfile Gemfile.lock ./
+
+ARG RAILS_ENV=production
+ARG NODE_ENV=production
+ARG VITE_API_URL
+ARG VITE_BROKER_WS
+ARG VITE_BROKER_VHOST
+ARG VITE_BROKER_USERNAME
+ARG VITE_BROKER_PASSWORD
+
+ENV RAILS_ENV="${RAILS_ENV}" \
+    NODE_ENV="${NODE_ENV}" \
+    VITE_API_URL="${VITE_API_URL}" \
+    VITE_BROKER_WS="${VITE_BROKER_WS}" \
+    VITE_BROKER_VHOST="${VITE_BROKER_VHOST}" \
+    VITE_BROKER_USERNAME="${VITE_BROKER_USERNAME}" \
+    VITE_BROKER_PASSWORD="${VITE_BROKER_PASSWORD}"
+
+# Install gems
+RUN bundle config set --local frozen 'true' \
+    && bundle install --no-cache --jobs "$(nproc)" --retry "$(nproc)" \
+    && rm -rf /usr/local/bundle/config \
+    && rm -rf /usr/local/bundle/cache/*.gem \
+    && find /usr/local/bundle/gems/ -name "*.c" -delete \
+    && find /usr/local/bundle/gems/ -name "*.o" -delete
+
+COPY package.json yarn.lock ./
+
+# Install npm packages
+RUN yarn install --frozen-lockfile
+
+COPY . ./
+
+RUN SECRET_KEY_BASE='rails secret' \
+    DEVISE_JWT_SECRET_KEY='rails secret' \
+    bundle exec rails assets:precompile
+
+COPY ./bin/docker-entrypoint-web.sh ./bin/
+RUN chmod +x ./bin/docker-entrypoint-web.sh
+
+######################################################################
+
+# Back at the base stage
+FROM base AS production
+
+WORKDIR /ethana
+
+COPY --from=dependencies /usr/local/bundle/ /usr/local/bundle/
+
+COPY . ./
+
+######################################################################
+
+# Back at the base stage
+FROM base AS app
+
+# Create a non-root user to run the app and own app-specific files
+RUN adduser -D ethana
+
+# Switch to this user
+USER ethana
+
+# Install the app in this directory
+WORKDIR /ethana
+
+# Copy over gems from the dependencies stage
+COPY --from=dependencies /usr/local/bundle/ /usr/local/bundle/
+COPY --chown=ethana --from=dependencies /ethana/public/ /ethana/public/
+
+# Finally, copy over the code
+# This is where the .dockerignore file comes into play
+# Note that we have to use `--chown` here
+COPY --chown=ethana . ./
+
+ENTRYPOINT ["sh","./bin/docker-entrypoint-web.sh"]
+
+EXPOSE 80 443 3000
+CMD ["./bin/rails", "server"]

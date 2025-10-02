@@ -1,0 +1,31 @@
+# Start from the ruby base image
+ARG RUBY_VERSION=3.2.6
+ARG IMAGE_DIST=alpine
+FROM ruby:$RUBY_VERSION-$IMAGE_DIST
+
+# Fetcher stage
+FROM alpine AS fetcher
+
+# Add curl to fetch buildx
+RUN apk add curl
+
+ARG BUILDX_VERSION=v0.14.1
+
+RUN curl -L \
+  --output /docker-buildx \
+  "https://github.com/docker/buildx/releases/download/${BUILDX_VERSION}/buildx-${BUILDX_VERSION}.linux-amd64"
+
+# Make the downloaded buildx file executable
+RUN chmod a+x /docker-buildx
+
+# Get back to the ruby image and copy the buildx file
+FROM ruby:$RUBY_VERSION-$IMAGE_DIST
+
+# Copy docker-buildx from the fetcher stage
+COPY --from=fetcher /docker-buildx /usr/libexec/docker/cli-plugins/docker-buildx
+
+# Install necessary packages
+RUN apk add --update --no-cache docker git openrc build-base
+
+# Install the kamal gem
+RUN gem install kamal --without document

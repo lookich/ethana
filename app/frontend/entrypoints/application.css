@@ -1,0 +1,5 @@
+@import "../../assets/tailwind/main.css";
+@import "../../assets/tailwind/application.css";
+@import "../../assets/tailwind/theme_switcher.css";
+@import "notivue/notification.css";
+@import "notivue/animations.css";
